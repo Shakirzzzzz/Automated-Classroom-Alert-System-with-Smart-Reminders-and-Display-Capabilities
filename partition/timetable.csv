@@ -1,0 +1,8 @@
+Day,8:00,8:50,9:40,10:30,11:20,12:10,13:00,14:00
+MON,analog ,Microprocessor,Microwave,VLSI,Analog,POC-2,Lunch,x
+TUE,Microprocessor,Microwave,Control_System,POC-2,VLSI,Analog,Lunch,x
+WED,x,Microprocessor,Control_System,Microwave&Antenna,x,x,Lunch,Communication Lab 1
+THU,x,Microprocessor,Microwave,Control_Systems,x,x,Lunch,Electronics Lab 3
+FRI,x,VLSI,POC-2,Analog,x,x,Lunch,x
+SAT,x,x,POC-2,POC-2,VLSI,Analog,Lunch,x
+SUN,x,x,x,x,x,x,x,x
