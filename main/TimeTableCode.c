@@ -34,7 +34,6 @@
 #include <stdlib.h>
 
 
-
 // BUzzzzer Ports define
 #define BUZZER_PIN GPIO_NUM_23 
 #define BUZZER_CHANNEL LEDC_CHANNEL_0
@@ -795,7 +794,7 @@ void update_rtc_globals(void *pvParameters) {
         struct tm adjusted_time = current_time;
         
 
-        adjusted_time.tm_min += 50; // UTC 5.30 correction
+        adjusted_time.tm_min += 30; // UTC 5.30 correction
         adjusted_time.tm_mday -= 1; // rtc is one day ahead so correction.
 
         mktime(&adjusted_time);
@@ -920,23 +919,23 @@ void app_main(void)
     ESP_LOGI(TAG, "Display monitoring task started");
 
     init_buzzer();
-    xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
+    // xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
     ////////////
-//     #if CONFIG_SET_CLOCK
-// 	// Set clock & Get clock
-// 	if (boot_count == 1) {
-// 		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
-// 	} else {
-// 		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-// 	}
-// #endif
+    #if CONFIG_SET_CLOCK
+	// Set clock & Get clock
+	if (boot_count == 1) {
+		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
+	} else {
+		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+	}
+#endif
 
-// #if CONFIG_GET_CLOCK
-// 	// Get clock
-// 	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-// #endif
+#if CONFIG_GET_CLOCK
+	// Get clock
+	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+#endif
 
-// xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
+xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
 // while(1){
 // 	ESP_LOGI(TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
 // 			current_time.tm_year, current_time.tm_mon + 1,
@@ -957,6 +956,5 @@ void app_main(void)
 
 
     
-
 
 
