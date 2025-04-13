@@ -32,7 +32,7 @@
 #include "driver/ledc.h"
 #include "font8x8_basic.h"
 #include <stdlib.h>
-
+#include "mdns.h"
 
 // BUzzzzer Ports define
 #define BUZZER_PIN GPIO_NUM_23 
@@ -41,6 +41,8 @@
 #define BUZZER_FREQ_HZ 2000 
 
 
+#define TOUCH_SENSOR_PIN GPIO_NUM_4
+#define DEBOUNCE_TIME_MS 200
 
 #define tag "SSD1306"
 extern const char *TAG;
@@ -137,7 +139,39 @@ uint8_t choti [1024] ={// '566-5669379_thumb-image-aligarh-muslim-university-log
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
+void touch_sensor_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "Touch sensor monitoring task started");
+    
+    int last_level = gpio_get_level(TOUCH_SENSOR_PIN);
+    
+    while (1) {
+        int current_level = gpio_get_level(TOUCH_SENSOR_PIN);
+    
+        if (current_level != last_level && current_level == 1) {
+            ESP_LOGI(TAG, "Touch detected! Preparing to restart system...");
+            // Small delay for debouncing
+            vTaskDelay(DEBOUNCE_TIME_MS / portTICK_PERIOD_MS);
+            
+            // Verify touch is still active after debounce
+            if (gpio_get_level(TOUCH_SENSOR_PIN) == 1) {
+                ssd1306_clear_screen(&display_dev, false);
+                ssd1306_contrast(&display_dev, 0xff);
+                
+                // Center the restarting text
+                ssd1306_display_text(&display_dev, 3, "  RESTARTING  ", 14, true);
+                
+                // Wait for 5 seconds
+                vTaskDelay(5000 / portTICK_PERIOD_MS);
 
+                esp_restart();
+            }
+        }
+        
+        last_level = current_level;
+        vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent CPU hogging
+    }
+}
 void init_buzzer() {
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -516,7 +550,7 @@ void display_logo(SSD1306_t *dev) {
 
     // ssd1306_display_text(dev, 5, " AMU ", 7, true);
 
-    // ssd1306_display_text(dev, 7, g_current_time, 5, true);
+    ssd1306_display_text(dev, 7, g_current_time, 5, true);
 
 }
 
@@ -562,13 +596,14 @@ void display_next_class(SSD1306_t *dev, const char* next_class_time, const char*
     
 
     char time_str[17];
-    snprintf(time_str, sizeof(time_str), "At %s:", next_class_time);
-    ssd1306_display_text(dev, 3, time_str, strlen(time_str), false);
+    ssd1306_display_text(dev,2,"     in 5 min     ",18, false);
+    // snprintf(time_str, sizeof(time_str), "At %s:", next_class_time);
+    // ssd1306_display_text(dev, 3, time_str, strlen(time_str), false);
     
 
     int padding = (16 - strlen(next_subject)) / 2;
     if (padding < 0) padding = 0;
-    
+        
     char padded_subject[17] = "";
     for (int i = 0; i < padding; i++) {
         strcat(padded_subject, " ");
@@ -710,7 +745,7 @@ void time_simulation_task(void *pvParameters) {
     strcpy(g_current_day, "THU");
 
     strcpy(g_current_time, "7:50");
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    vTaskDelay(15000 / portTICK_PERIOD_MS);
     
 
 
@@ -794,7 +829,7 @@ void update_rtc_globals(void *pvParameters) {
         struct tm adjusted_time = current_time;
         
 
-        adjusted_time.tm_min += 30; // UTC 5.30 correction
+        adjusted_time.tm_min += 39; // UTC 5.30 correction
         adjusted_time.tm_mday -= 1; // rtc is one day ahead so correction.
 
         mktime(&adjusted_time);
@@ -848,7 +883,17 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_1, &i2c_config_rtc));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_1, I2C_MODE_MASTER, 0, 0, 0));
-
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << TOUCH_SENSOR_PIN),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+    
+    ESP_LOGI(TAG, "Touch sensor initialized on GPIO %d", TOUCH_SENSOR_PIN);
+    ESP_LOGI(TAG, "System will restart when touch is detected");
     // Initializing Spiffs Partition //
     const char* base_path = "/storage";
 
@@ -919,23 +964,24 @@ void app_main(void)
     ESP_LOGI(TAG, "Display monitoring task started");
 
     init_buzzer();
-    // xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
+    xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
+    xTaskCreate(touch_sensor_task,"touch_sensor_task",2048,NULL, 4, NULL);
     ////////////
-    #if CONFIG_SET_CLOCK
-	// Set clock & Get clock
-	if (boot_count == 1) {
-		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
-	} else {
-		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-	}
-#endif
+//     #if CONFIG_SET_CLOCK
+// 	// Set clock & Get clock
+// 	if (boot_count == 1) {
+// 		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
+// 	} else {
+// 		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+// 	}
+// #endif
 
-#if CONFIG_GET_CLOCK
-	// Get clock
-	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-#endif
+// #if CONFIG_GET_CLOCK
+// 	// Get clock
+// 	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+// #endif
 
-xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
+// xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
 // while(1){
 // 	ESP_LOGI(TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
 // 			current_time.tm_year, current_time.tm_mon + 1,
