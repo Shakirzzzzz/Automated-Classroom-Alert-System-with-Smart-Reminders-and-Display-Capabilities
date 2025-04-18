@@ -1,8 +1,8 @@
 Day,8:00,8:50,9:40,10:30,11:20,12:10,13:00,14:00
-MON,analog ,Microprocessor,Microwave,VLSI,Analog,POC-2,Lunch,x
-TUE,Microprocessor,Microwave,Control_System,POC-2,VLSI,Analog,Lunch,x
-WED,x,Microprocessor,Control_System,Microwave&Antenna,x,x,Lunch,Communication Lab 1
-THU,VLSI,Microprocessor,Microwave,Control_Systems,x,x,Lunch,Electronics_Lab_3
-FRI,x,VLSI,POC-2,Analog,x,x,Lunch,x
-SAT,x,x,POC-2,POC-2,VLSI,Analog,Lunch,x
+MON,x,x,Economy,DSP,Digital_System_Design,D_Communication,Lunch,x
+TUE,x,Economy,DSA,D_Communication,DSP,D_System_Design,Lunch,x
+WED,x,DSA,Management,Digital_Sys_Design,x,x,Lunch,Communication_Lab_2
+THU,x,DSA,Management,Digital_Sys_Design,x,x,Lunch,Embedded_System_Lab
+FRI,x,DSP,Digital_Comm,x,x,x,x,x
+SAT,Mini_Project,Mini_Project,Mini_Project,Digital_Comm,DSP,x,Lunch,x
 SUN,x,x,x,x,x,x,x,x

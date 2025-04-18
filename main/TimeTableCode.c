@@ -73,7 +73,7 @@ struct tm current_time;
 #endif
 
 RTC_DATA_ATTR static int boot_count = 0;
-uint8_t choti [1024] ={// '566-5669379_thumb-image-aligarh-muslim-university-logo-hd-png', 128x64px
+uint8_t amu_logo [1024] ={// '566-5669379_thumb-image-aligarh-muslim-university-logo-hd-png', 128x64px
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
@@ -193,6 +193,34 @@ void init_buzzer() {
     };
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
     ESP_LOGI(TAG, "Buzzer initialized");
+}
+
+void beep_five_minute_warning(void) {
+    ESP_LOGI(TAG, "5-Minute Warning Buzzer");
+    
+    // Ascending pattern - 5 beeps increasing in frequency
+    for (int i = 0; i < 5; i++) {
+        // Beep with increasing duty cycle for ascending tone effect
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL, 300 + (i * 50)); 
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+        
+        // Brief pause between beeps
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL, 0);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL);
+        vTaskDelay(150 / portTICK_PERIOD_MS);
+    }
+    
+    // Longer final beep
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL, 450);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+    
+    // Turn off buzzer
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, BUZZER_CHANNEL);
+    
+    ESP_LOGI(TAG, "5-Minute Warning Buzzer Complete");
 }
 
 void beep_buzzer(int duration_ms) {
@@ -388,7 +416,7 @@ void getClock(void *pvParameters)
     
     // Try to initialize the RTC with retries
     while (init_retry_count < max_init_retries) {
-        if (ds3231_init_desc(&dev, I2C_NUM_1, 5, 2) == ESP_OK) {
+        if (ds3231_init_desc(&dev, I2C_NUM_1, 5, 17) == ESP_OK) {
             ESP_LOGI(pcTaskGetName(0), "Successfully initialized RTC device");
             break;
         }
@@ -534,7 +562,7 @@ void display_logo(SSD1306_t *dev) {
 		ssd1306_clear_screen(dev, false);
 		// ssd1306_display_text(&dev,0, "EID MUBARAK",12,false);
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
-		ssd1306_bitmaps(dev, 0, 0, choti, 128, 64, false);
+		ssd1306_bitmaps(dev, 0, 0, amu_logo, 128, 64, false);
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 
 		// for(int i=0;i<64;i++) {
@@ -680,7 +708,7 @@ void update_display_task(void *pvParameters) {
                 strcpy(next_class_time, temp_next_time);
                 ESP_LOGI(TAG, "Entering 5-minute notification window for class at %s!", next_class_time);
                 show_next_class = true;
-                beep_buzzer(5000);
+                beep_five_minute_warning();
             }
             // Handle reaching class time - exit notification window
             else if (is_valid_time(g_current_time) && in_notification_window && 
@@ -742,7 +770,7 @@ void update_display_task(void *pvParameters) {
 
 void time_simulation_task(void *pvParameters) {
     
-    strcpy(g_current_day, "THU");
+    strcpy(g_current_day, "TUE");
 
     strcpy(g_current_time, "7:50");
     vTaskDelay(15000 / portTICK_PERIOD_MS);
@@ -829,7 +857,7 @@ void update_rtc_globals(void *pvParameters) {
         struct tm adjusted_time = current_time;
         
 
-        adjusted_time.tm_min += 39; // UTC 5.30 correction
+        adjusted_time.tm_min += 30; // UTC 5.30 correction
         adjusted_time.tm_mday -= 1; // rtc is one day ahead so correction.
 
         mktime(&adjusted_time);
@@ -876,10 +904,10 @@ void app_main(void)
     i2c_config_t i2c_config_rtc = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = 5,  // GPIO 5 for SDA (RTC)
-        .scl_io_num = 2,  // GPIO 2 for SCL (RTC)
+        .scl_io_num = 17,  // GPIO 2 for SCL (RTC)
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 50000  // Most RTCs work well at 400kHz
+        .master.clk_speed = 100000  // Most RTCs work well at 400kHz
     };
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_1, &i2c_config_rtc));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_1, I2C_MODE_MASTER, 0, 0, 0));
@@ -964,31 +992,25 @@ void app_main(void)
     ESP_LOGI(TAG, "Display monitoring task started");
 
     init_buzzer();
-    xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
+    // xTaskCreate(time_simulation_task, "time_sim", 2048, NULL, 1, NULL);
     xTaskCreate(touch_sensor_task,"touch_sensor_task",2048,NULL, 4, NULL);
     ////////////
-//     #if CONFIG_SET_CLOCK
-// 	// Set clock & Get clock
-// 	if (boot_count == 1) {
-// 		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
-// 	} else {
-// 		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-// 	}
-// #endif
 
-// #if CONFIG_GET_CLOCK
-// 	// Get clock
-// 	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
-// #endif
+	// Set clock & Get clock
+	if (boot_count == 1) {
+		xTaskCreate(setClock, "setClock", 1024*4, NULL, 2, NULL);
+	} else {
+		xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+	}
 
-// xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
-// while(1){
-// 	ESP_LOGI(TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
-// 			current_time.tm_year, current_time.tm_mon + 1,
-// 			current_time.tm_mday, current_time.tm_hour, current_time.tm_min, current_time.tm_sec);
 
-// 	vTaskDelay(1000);		
-// }
+
+	// Get clock
+	xTaskCreate(getClock, "getClock", 1024*4, NULL, 2, NULL);
+
+
+xTaskCreate(update_rtc_globals, "update_rtc", 2048, NULL, 3, NULL);
+
 
 
 }
