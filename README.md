@@ -30,7 +30,7 @@ This project implements a digital timetable display system using an ESP32 microc
 | OLED SCL  | GPIO 22        |
 | OLED RST  | Configured in menuconfig |
 | RTC SDA   | GPIO 5         |
-| RTC SCL   | GPIO 2         |
+| RTC SCL   | GPIO 17         |
 | Buzzer    | GPIO 23        |
 
 ## Timetable Format
