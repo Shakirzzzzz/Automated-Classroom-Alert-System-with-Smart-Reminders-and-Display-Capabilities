@@ -2,6 +2,9 @@
 
 ## Overview
 This project implements a digital timetable display system using an ESP32 microcontroller, an SSD1306 OLED display, a DS3231 RTC module, and a buzzer. The system shows the current or upcoming class based on the time and day, with notifications before classes begin.
+## Preview
+https://www.youtube.com/watch?v=S0lt1wQhGu8
+
 
 
 ## Features
